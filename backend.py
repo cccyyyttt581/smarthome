@@ -5,9 +5,12 @@ import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-
-app = Flask(__name__)
+app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app)
+
+@app.route("/")
+def index():
+    return app.send_static_file("frontend.html")
 
 AK = "HPUAPVGJ1KKYZLEY62YG"
 SK = "2C8jS6k6gJgZL6sO5NsPP3Ue0BQqTJihVl7Z7B51"
