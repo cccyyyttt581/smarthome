@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>智能物联中枢 · 华为云IoT</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background: linear-gradient(135deg, #0a0f1e 0%, #0c1222 100%);
+    font-family: 'Segoe UI', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+    color: #eef2ff;
+    min-height: 100vh;
+    padding: 24px;
+    animation: fadeIn 0.6s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .dashboard {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(79, 120, 255, 0.3);
+    animation: slideDown 0.5s ease-out;
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .title-section h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #a5f0ff, #4f78ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: glowPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { filter: drop-shadow(0 0 0px rgba(79,120,255,0)); }
+    50% { filter: drop-shadow(0 0 8px rgba(79,120,255,0.5)); }
+  }
+
+  .title-section p {
+    font-size: 0.8rem;
+    color: #8e9ac0;
+    margin-top: 6px;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: rgba(15, 25, 45, 0.7);
+    backdrop-filter: blur(8px);
+    padding: 8px 20px;
+    border-radius: 48px;
+    border: 1px solid rgba(79, 120, 255, 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .status-bar:hover {
+    border-color: rgba(79, 120, 255, 0.6);
+    transform: scale(1.02);
+  }
+
+  .api-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .api-control label {
+    font-size: 0.75rem;
+    color: #7c8ab0;
+  }
+
+  .api-control input {
+    background: #0f172f;
+    border: 1px solid #2a3a6e;
+    border-radius: 24px;
+    padding: 6px 14px;
+    color: #eef2ff;
+    font-size: 0.8rem;
+    width: 220px;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  .api-control input:focus {
+    border-color: #4f78ff;
+    box-shadow: 0 0 8px rgba(79, 120, 255, 0.3);
+  }
+
+  .live-dot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 10px;
+    background: #4ade80;
+    box-shadow: 0 0 6px #4ade80;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+  }
+
+  .dot.off { background: #6b7280; box-shadow: none; animation: none; }
+  .dot.err { background: #f87171; box-shadow: 0 0 6px #f87171; animation: shake 0.5s; }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+  }
+
+  .sensor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .sensor-card {
+    background: rgba(12, 20, 35, 0.7);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(79, 120, 255, 0.2);
+    border-radius: 28px;
+    padding: 20px;
+    transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    animation: cardFloatIn 0.5s ease-out backwards;
+  }
+
+  .sensor-card:nth-child(1) { animation-delay: 0.05s; }
+  .sensor-card:nth-child(2) { animation-delay: 0.1s; }
+  .sensor-card:nth-child(3) { animation-delay: 0.15s; }
+  .sensor-card:nth-child(4) { animation-delay: 0.2s; }
+
+  @keyframes cardFloatIn {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .sensor-card:hover {
+    border-color: rgba(79, 120, 255, 0.5);
+    background: rgba(15, 25, 48, 0.8);
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .sensor-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #7c8ab0;
+    margin-bottom: 12px;
+  }
+
+  .sensor-value {
+    font-size: 2.8rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.2s ease;
+  }
+
+  .sensor-value.temp { color: #fbbf24; text-shadow: 0 0 8px rgba(251,191,36,0.3); }
+  .sensor-value.humi { color: #60a5fa; text-shadow: 0 0 8px rgba(96,165,250,0.3); }
+  .sensor-value.soil { color: #34d399; text-shadow: 0 0 8px rgba(52,211,153,0.3); }
+
+  .sensor-value.changed {
+    animation: valuePop 0.3s ease-out;
+  }
+
+  @keyframes valuePop {
+    0% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(79, 120, 255, 0.15);
+    padding: 5px 12px;
+    border-radius: 40px;
+    font-size: 0.75rem;
+    margin-top: 10px;
+    transition: all 0.2s ease;
+  }
+
+  .badge.warn {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+    animation: badgeWarn 0.6s ease-in-out;
+  }
+
+  @keyframes badgeWarn {
+    0%, 100% { background: rgba(248, 113, 113, 0.2); }
+    50% { background: rgba(248, 113, 113, 0.5); }
+  }
+
+  .badge.on { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+
+  .control-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .ctrl-card {
+    background: rgba(12, 20, 35, 0.7);
+    border: 1px solid rgba(79, 120, 255, 0.2);
+    border-radius: 28px;
+    padding: 20px;
+    transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    animation: slideUp 0.5s ease-out backwards;
+    animation-delay: 0.25s;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .ctrl-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(79, 120, 255, 0.5);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .ctrl-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: #7c8ab0;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+
+  .button-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    background: #0f172f;
+    border: 1px solid #2a3a6e;
+    padding: 8px 20px;
+    border-radius: 40px;
+    color: #eef2ff;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:hover {
+    background: #1e2a4a;
+    border-color: #4f78ff;
+    transform: scale(0.96);
+  }
+
+  .btn:active {
+    transform: scale(0.92);
+  }
+
+  .btn-danger { border-color: #f87171; color: #f87171; }
+  .btn-success { border-color: #4ade80; color: #4ade80; }
+  .btn-warning { border-color: #fbbf24; color: #fbbf24; }
+  .btn-primary { border-color: #4f78ff; background: #4f78ff20; }
+
+  .chart-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .chart-card {
+    background: rgba(12, 20, 35, 0.7);
+    border: 1px solid rgba(79, 120, 255, 0.2);
+    border-radius: 28px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    animation: fadeInUp 0.5s ease-out backwards;
+    animation-delay: 0.35s;
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .chart-card:hover {
+    border-color: rgba(79, 120, 255, 0.5);
+    transform: translateY(-2px);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .refresh-btn {
+    background: none;
+    border: 1px solid #2a3a6e;
+    padding: 4px 12px;
+    border-radius: 20px;
+    color: #8e9ac0;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(79, 120, 255, 0.15);
+    border-color: #4f78ff;
+    transform: scale(1.05);
+    box-shadow: 0 0 12px rgba(79, 120, 255, 0.5);
+    color: #a5f0ff;
+  }
+
+  .refresh-btn:active {
+    transform: scale(0.92) rotate(180deg);
+    transition: transform 0.15s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+  }
+
+  canvas {
+    max-height: 220px;
+    width: 100%;
+  }
+
+  .log-card {
+    background: rgba(12, 20, 35, 0.7);
+    border: 1px solid rgba(79, 120, 255, 0.2);
+    border-radius: 28px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    animation: fadeInUp 0.5s ease-out backwards;
+    animation-delay: 0.45s;
+  }
+
+  .log-box {
+    background: #050a14;
+    border-radius: 20px;
+    padding: 14px;
+    height: 140px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+  }
+
+  .log-line {
+    display: flex;
+    gap: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid #1e2a3a;
+    animation: logSlideIn 0.3s ease-out;
+  }
+
+  @keyframes logSlideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .log-time { color: #4f78ff; flex-shrink: 0; }
+  .log-msg { color: #a0afcf; }
+  .log-msg.ok { color: #4ade80; }
+  .log-msg.err { color: #f87171; }
+  .log-msg.send { color: #fbbf24; }
+
+  @media (max-width: 800px) {
+    body { padding: 16px; }
+    .control-panel { grid-template-columns: 1fr; }
+    .chart-section { grid-template-columns: 1fr; }
+    .sensor-value { font-size: 2rem; }
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #0f172f; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb { background: #4f78ff; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <div class="header">
+    <div class="title-section">
+      <h1>⚡ 智能物联中枢</h1>
+      <p>华为云 IoTDA · 多源感知 · 实时控制</p>
+    </div>
+    <div class="status-bar">
+      <div class="api-control">
+        <label>🔌 API</label>
+        <input type="text" id="apiBase" value="http://127.0.0.1:5000">
+      </div>
+      <div class="live-dot">
+        <div class="dot" id="dot"></div>
+        <span id="dotTxt">就绪</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sensor-grid">
+    <div class="sensor-card"><div class="sensor-title">🌡️ 温度</div><div><span class="sensor-value temp" id="tempVal">--</span><span class="sensor-unit">°C</span></div><div class="sensor-ts" id="sensorTs" style="font-size:0.7rem; margin-top:6px;">--</div></div>
+    <div class="sensor-card"><div class="sensor-title">💧 湿度</div><div><span class="sensor-value humi" id="humiVal">--</span><span class="sensor-unit">%RH</span></div></div>
+    <div class="sensor-card"><div class="sensor-title">🪴 土壤湿度</div><div><span class="sensor-value soil" id="soilVal">--</span><span class="sensor-unit">ADC</span></div></div>
+    <div class="sensor-card" id="motionCard"><div class="sensor-title">🚶 人体感应</div><div><span class="badge" id="motionBadge">⚪ 无人</span></div></div>
+  </div>
+
+  <div class="control-panel">
+    <div class="ctrl-card"><div class="ctrl-title">💡 LED 控制</div><div class="button-group"><button class="btn btn-danger" onclick="sendLight(0)">🔴 关灯</button><button class="btn btn-success" onclick="sendLight(1)">🟢 常亮</button><button class="btn btn-warning" onclick="sendLight(2)">✨ 闪烁</button></div><div style="margin-top:12px"><span class="badge" id="ledBadge">⚫ 关闭</span></div></div>
+
+    <div class="ctrl-card"><div class="ctrl-title">🔔 报警控制</div><div class="button-group"><button class="btn btn-primary" onclick="sendCmd({Alarm:true})">🚨 开启报警</button><button class="btn btn-danger" onclick="sendCmd({Alarm:false})">🔇 关闭报警</button></div><div style="margin-top:12px"><span class="badge" id="alarmBadge">⚪ 报警关闭</span></div></div>
+
+    <div class="ctrl-card">
+      <div class="ctrl-title">💨 风扇控制</div>
+      <div class="button-group">
+        <button class="btn btn-primary" onclick="sendCmd({Relay: 1})">💨 打开风扇</button>
+        <button class="btn btn-danger" onclick="sendCmd({Relay: 0})">💨 关闭风扇</button>
+      </div>
+      <div style="margin-top:12px"><span class="badge" id="relayBadge">⚪ 风扇关闭</span></div>
+    </div>
+  </div>
+
+  <div class="control-panel" style="margin-top: 0;">
+    <div class="ctrl-card">
+      <div class="ctrl-title">🏠 安防联动</div>
+      <div class="button-group">
+        <button class="btn btn-success" onclick="sendCmd({HomeMode: 'home'})">
+          🏠 我回来了（在家模式）
+        </button>
+        <button class="btn btn-danger" onclick="sendCmd({HomeMode: 'away'})">
+          🔒 外出模式（布防）
+        </button>
+      </div>
+      <div style="margin-top:12px">
+        <span class="badge on" id="modeBadge">🏠 在家模式</span>
+      </div>
+      <div style="margin-top:8px; font-size:0.7rem; color:#7c8ab0;">
+        💡 在家模式：检测到人自动开灯<br>
+        🔒 外出模式：检测到人触发报警
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-section">
+    <div class="chart-card">
+      <div class="chart-header">
+        <span>📈 温度历史曲线</span>
+        <button class="refresh-btn" onclick="loadHistory()">刷新</button>
+      </div>
+      <canvas id="tempChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span>📉 湿度历史曲线</span>
+        <button class="refresh-btn" onclick="loadHistory()">刷新</button>
+      </div>
+      <canvas id="humiChart"></canvas>
+    </div>
+  </div>
+
+  <div class="log-card">
+    <div style="display:flex;justify-content:space-between">
+      <span class="ctrl-title">📋 事件日志</span>
+      <span style="cursor:pointer;color:#7c8ab0;font-size:0.7rem" onclick="clearLog()">清空</span>
+    </div>
+    <div class="log-box" id="logBox">
+      <div class="log-line"><span class="log-time">--:--:--</span><span class="log-msg info">系统就绪，自动刷新 5s</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let busy = false;
+let lastHistoryLength = 0;
+
+function animateValueChange(element, newVal) {
+  if (element.textContent !== String(newVal)) {
+    element.classList.add('changed');
+    setTimeout(() => element.classList.remove('changed'), 300);
+  }
+  element.textContent = newVal;
+}
+
+function ts() { return new Date().toTimeString().slice(0,8); }
+
+function log(msg, type='') {
+  const box = document.getElementById('logBox');
+  const d = document.createElement('div');
+  d.className = 'log-line';
+  d.innerHTML = `<span class="log-time">${ts()}</span><span class="log-msg ${type}">${msg}</span>`;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+  if(box.children.length > 50) box.removeChild(box.children[0]);
+}
+
+function clearLog() { document.getElementById('logBox').innerHTML = ''; }
+function apiBase() { return document.getElementById('apiBase').value.trim().replace(/\/$/,''); }
+
+function setDot(s) {
+  const d = document.getElementById('dot');
+  const t = document.getElementById('dotTxt');
+  d.className = 'dot' + (s==='ok' ? '' : ' off');
+  t.textContent = s==='ok' ? '在线' : '异常';
+  if(s!=='ok') d.classList.add('err');
+  else d.classList.remove('err');
+}
+
+function updateLED(m) {
+  const b = document.getElementById('ledBadge');
+  if(m===0) b.innerHTML = '⚫ 关闭';
+  else if(m===1) b.innerHTML = '🟢 常亮';
+  else b.innerHTML = '✨ 闪烁';
+}
+
+function updateAlarm(v) {
+  const b = document.getElementById('alarmBadge');
+  b.innerHTML = v ? '🔴 报警开启' : '⚪ 报警关闭';
+  if(v) b.classList.add('warn');
+  else b.classList.remove('warn');
+}
+
+function updateMotion(v) {
+  const b = document.getElementById('motionBadge');
+  b.innerHTML = v ? '🚨 检测到人' : '⚪ 无人';
+  if(v) b.classList.add('warn');
+  else b.classList.remove('warn');
+}
+
+function updateRelay(val) {
+  const b = document.getElementById('relayBadge');
+  if (val == 1) {
+    b.innerHTML = '💨 风扇运行中';
+    b.classList.add('on');
+  } else {
+    b.innerHTML = '⚪ 风扇已关闭';
+    b.classList.remove('on');
+  }
+}
+
+function updateHomeMode(mode) {
+  const b = document.getElementById('modeBadge');
+  if (mode === 'home') {
+    b.innerHTML = '🏠 在家模式（检测到人自动亮灯）';
+    b.classList.add('on');
+    b.classList.remove('warn');
+  } else {
+    b.innerHTML = '🔒 外出模式（检测到人报警）';
+    b.classList.add('warn');
+    b.classList.remove('on');
+  }
+}
+
+async function sendLight(mode) {
+  if(busy) return;
+  busy = true;
+  log(`→ 发送 LightStatus=${mode}`, 'send');
+  try {
+    const r = await fetch(`${apiBase()}/light`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({LightStatus: mode})
+    });
+    const d = await r.json();
+    if(d.ok) {
+      updateLED(mode);
+      log(`✓ 灯光已下发`, 'ok');
+      setDot('ok');
+    } else log(`✗ 失败`, 'err');
+  } catch(e) {
+    log(`✗ 请求异常`, 'err');
+  } finally {
+    busy = false;
+  }
+}
+
+async function sendCmd(params) {
+  if(busy) return;
+  busy = true;
+  const k = Object.keys(params)[0];
+  log(`→ 发送 ${k}=${params[k]}`, 'send');
+  try {
+    const r = await fetch(`${apiBase()}/command`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(params)
+    });
+    const d = await r.json();
+    if(d.ok) {
+      if(params.Alarm !== undefined) updateAlarm(params.Alarm);
+      if(params.Relay !== undefined) updateRelay(params.Relay);
+      if(params.HomeMode !== undefined) updateHomeMode(params.HomeMode);
+      log(`✓ 命令已下发`, 'ok');
+      setDot('ok');
+    } else log(`✗ 失败`, 'err');
+  } catch(e) {
+    log(`✗ 请求异常`, 'err');
+  } finally {
+    busy = false;
+  }
+}
+
+async function loadLatest() {
+  try {
+    const r = await fetch(`${apiBase()}/sensor/latest`);
+    const d = await r.json();
+    if(!d.ok) return;
+    animateValueChange(document.getElementById('tempVal'), d.temperature ?? '--');
+    animateValueChange(document.getElementById('humiVal'), d.humidity ?? '--');
+    animateValueChange(document.getElementById('soilVal'), d.soil ?? '--');
+    if(d.LightStatus !== undefined) updateLED(d.LightStatus);
+    if(d.Alarm !== undefined) updateAlarm(d.Alarm);
+    if(d.motion !== undefined) updateMotion(d.motion);
+    if(d.Relay !== undefined) updateRelay(d.Relay);
+    if(d.home_mode !== undefined) updateHomeMode(d.home_mode);
+    if(d.ts) {
+      const dt = new Date(d.ts);
+      document.getElementById('sensorTs').innerText = isNaN(dt) ? d.ts : dt.toLocaleTimeString();
+    }
+    setDot('ok');
+  } catch(e) {
+    setDot('err');
+  }
+}
+
+// 高级曲线配置
+const advancedChartOptions = (color, gradientStart, gradientEnd, title) => ({
+  responsive: true,
+  maintainAspectRatio: true,
+  animation: {
+    duration: 800,
+    easing: 'easeInOutQuart'
+  },
+  interaction: {
+    mode: 'index',
+    intersect: false,
+  },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'rgba(10, 15, 30, 0.95)',
+      titleColor: '#a5f0ff',
+      bodyColor: color,
+      borderColor: color,
+      borderWidth: 1,
+      padding: 10,
+      callbacks: {
+        label: function(context) {
+          return `${title}: ${context.raw} ${title === '温度' ? '°C' : '%'}`;
+        }
+      }
+    }
+  },
+  scales: {
+    x: {
+      ticks: { color: '#8e9ac0', font: { size: 10 }, maxRotation: 45, minRotation: 45 },
+      grid: { color: 'rgba(79, 120, 255, 0.08)', drawBorder: false },
+      title: { display: true, text: '时间', color: '#7c8ab0', font: { size: 10 } }
+    },
+    y: {
+      ticks: { color: '#8e9ac0', font: { size: 10 }, stepSize: title === '温度' ? 5 : 20 },
+      grid: { color: 'rgba(79, 120, 255, 0.08)', drawBorder: false },
+      title: { display: true, text: title === '温度' ? '温度 (°C)' : '湿度 (%)', color: '#7c8ab0', font: { size: 10 } }
+    }
+  },
+  elements: {
+    line: {
+      tension: 0.4,
+      borderWidth: 3,
+      borderJoin: 'round',
+      borderCap: 'round'
+    },
+    point: {
+      radius: 4,
+      hoverRadius: 7,
+      pointStyle: 'circle',
+      borderWidth: 2,
+      borderColor: '#0a0f1e'
+    }
+  }
+});
+
+let tempChart, humiChart;
+
+function initCharts() {
+  const ctxT = document.getElementById('tempChart').getContext('2d');
+  const ctxH = document.getElementById('humiChart').getContext('2d');
+
+  const tempGradient = ctxT.createLinearGradient(0, 0, 0, 200);
+  tempGradient.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
+  tempGradient.addColorStop(1, 'rgba(251, 191, 36, 0.02)');
+
+  const humiGradient = ctxH.createLinearGradient(0, 0, 0, 200);
+  humiGradient.addColorStop(0, 'rgba(96, 165, 250, 0.4)');
+  humiGradient.addColorStop(1, 'rgba(96, 165, 250, 0.02)');
+
+  tempChart = new Chart(ctxT, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: '温度',
+        data: [],
+        borderColor: '#fbbf24',
+        backgroundColor: tempGradient,
+        borderWidth: 3,
+        pointBackgroundColor: '#fbbf24',
+        pointBorderColor: '#0a0f1e',
+        pointRadius: 4,
+        pointHoverRadius: 7,
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: advancedChartOptions('#fbbf24', '#fbbf24', '#fbbf24', '温度')
+  });
+
+  humiChart = new Chart(ctxH, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: '湿度',
+        data: [],
+        borderColor: '#60a5fa',
+        backgroundColor: humiGradient,
+        borderWidth: 3,
+        pointBackgroundColor: '#60a5fa',
+        pointBorderColor: '#0a0f1e',
+        pointRadius: 4,
+        pointHoverRadius: 7,
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: advancedChartOptions('#60a5fa', '#60a5fa', '#60a5fa', '湿度')
+  });
+}
+
+async function loadHistory(){
+  try{
+    const r=await fetch(`${apiBase()}/sensor/history?limit=30`);
+    const d=await r.json();
+    if(!d.ok||!d.data||d.data.length===0) return;
+    const labels=d.data.map(s=>{const dt=new Date(s.ts);return isNaN(dt)?s.ts:dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});});
+    tempChart.data.labels=labels;
+    tempChart.data.datasets[0].data=d.data.map(s=>s.temperature);
+    tempChart.update();
+    humiChart.data.labels=labels;
+    humiChart.data.datasets[0].data=d.data.map(s=>s.humidity);
+    humiChart.update();
+    log(`✓ 历史更新 ${d.data.length}条`,'ok');
+  } catch(e){
+    log(`历史失败`,'err');
+  }
+}
+
+async function refresh() {
+  await loadLatest();
+  await loadHistory();
+}
+
+initCharts();
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
