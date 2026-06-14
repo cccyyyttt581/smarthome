@@ -31,10 +31,10 @@ ALERT_COOLDOWN = 120
 
 
 def send_wechat(title, content):
-    url = f"https://bemfa.com/api/beinfo?uid=92bb961dba86472d9fcd1b16cd4b3871&title={title}&content={content}"
+    url = f"https://apis.bemfa.com/vb/wechat/v1/wechatAlert?uid=92bb961dba86472d9fcd1b16cd4b3871&device={title}&message={content}"
     try:
-        requests.get(url, timeout=5)
-        print(f"[微信推送] {title}: {content}")
+        resp = requests.get(url, timeout=5)
+        print(f"[微信推送] {title}: {content}, 响应: {resp.text}")
     except Exception as e:
         print(f"[微信推送失败] {e}")
 
