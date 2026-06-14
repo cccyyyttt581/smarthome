@@ -195,10 +195,11 @@ def sensor_latest():
         if result["temperature"] is not None and result["ts"] is not None:
             if not _history or _history[-1]["ts"] != result["ts"]:
                 _history.append({
-                    "ts": result["ts"],
-                    "temperature": result["temperature"],
-                    "humidity": result["humidity"],
-                })
+                "ts": result["ts"],
+                "temperature": result["temperature"],
+                "humidity": result["humidity"],
+                "soil": result["soil"],
+            })
                 if len(_history) > MAX_HISTORY:
                     _history.pop(0)
 
