@@ -8,10 +8,6 @@ from flask_cors import CORS
 app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app)
 
-@app.route("/")
-def index():
-    return app.send_static_file("frontend.html")
-
 AK = "HPUAPVGJ1KKYZLEY62YG"
 SK = "2C8jS6k6gJgZL6sO5NsPP3Ue0BQqTJihVl7Z7B51"
 PROJECT_ID = "019e2a94943f735c96a6e968914f7896"
@@ -20,7 +16,6 @@ DEVICE_ID = "6a2930e2cbb0cf6bb9639250_esp32_001"
 REGION = "cn-north-4"
 SERVICE_ID = "cyt"
 
-
 IAM_ENDPOINT = f"https://iam.{REGION}.myhuaweicloud.com"
 IOTDA_ENDPOINT = "https://d63c160ec2.st1.iotda-app.cn-north-4.myhuaweicloud.com"
 
@@ -28,11 +23,25 @@ _token_cache = {"token": None, "expires_at": 0}
 _history = []
 MAX_HISTORY = 200
 
-# 安防模式: 'home' = 在家模式（自动亮灯）, 'away' = 外出模式（报警）
 home_mode = 'home'
-
-# 记录上一次的 motion 状态（用于检测变化）
 last_motion_state = 0
+last_temp_alert_time = 0
+last_motion_alert_time = 0
+ALERT_COOLDOWN = 120
+
+
+def send_wechat(title, content):
+    url = f"https://bemfa.com/api/beinfo?uid=92bb961dba86472d9fcd1b16cd4b3871&title={title}&content={content}"
+    try:
+        requests.get(url, timeout=5)
+        print(f"[微信推送] {title}: {content}")
+    except Exception as e:
+        print(f"[微信推送失败] {e}")
+
+
+@app.route("/")
+def index():
+    return app.send_static_file("frontend.html")
 
 
 def get_iam_token():
@@ -130,7 +139,6 @@ def command():
         return _cors()
     params = request.get_json(force=True)
 
-    # 处理安防模式切换
     if "HomeMode" in params:
         home_mode = params["HomeMode"]
         print(f"[安防] 模式切换为: {'在家模式' if home_mode == 'home' else '外出模式'}")
@@ -147,7 +155,7 @@ def command():
 
 @app.route("/sensor/latest", methods=["GET"])
 def sensor_latest():
-    global home_mode, last_motion_state
+    global home_mode, last_motion_state, last_temp_alert_time, last_motion_alert_time
     try:
         r = iotda("GET", f"/v5/iot/{PROJECT_ID}/devices/{DEVICE_ID}/shadow")
         if r.status_code != 200:
@@ -175,10 +183,11 @@ def sensor_latest():
                 result["ts"] = svc.get("reported", {}).get("event_time")
                 break
 
-        # ========== 联动逻辑（核心） ==========
+        # ========== 联动逻辑 ==========
         current_motion = result.get("motion", 0)
+        current_temp = result.get("temperature")
+        now = time.time()
 
-        # 当 motion 从 0 变成 1 时触发联动
         if current_motion == 1 and last_motion_state == 0:
             print(f"[联动] 检测到人！当前模式: {home_mode}")
             if home_mode == 'home':
@@ -187,19 +196,26 @@ def sensor_latest():
             else:
                 print("[联动] 外出模式：触发报警")
                 send_message("auto-alarm", {"Alarm": True})
+                if now - last_motion_alert_time > ALERT_COOLDOWN:
+                    send_wechat("安防警报", "检测到有人闯入，请注意！")
+                    last_motion_alert_time = now
 
-        # 更新上一次的状态
+        if current_temp is not None and current_temp > 30:
+            if now - last_temp_alert_time > ALERT_COOLDOWN:
+                send_wechat("温度警告", f"当前温度{current_temp}°C，已超过30°C！")
+                last_temp_alert_time = now
+
         last_motion_state = current_motion
         # ===================================
 
         if result["temperature"] is not None and result["ts"] is not None:
             if not _history or _history[-1]["ts"] != result["ts"]:
                 _history.append({
-                "ts": result["ts"],
-                "temperature": result["temperature"],
-                "humidity": result["humidity"],
-                "soil": result["soil"],
-            })
+                    "ts": result["ts"],
+                    "temperature": result["temperature"],
+                    "humidity": result["humidity"],
+                    "soil": result["soil"],
+                })
                 if len(_history) > MAX_HISTORY:
                     _history.pop(0)
 
@@ -241,5 +257,5 @@ def _cors():
 
 if __name__ == "__main__":
     print("[系统] 后端启动中...")
-    print("[系统] 安防联动已启用（集成在传感器查询中）")
+    print("[系统] 安防联动+微信推送已启用")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
