@@ -27,7 +27,7 @@ home_mode = 'home'
 last_motion_state = 0
 last_temp_alert_time = 0
 last_motion_alert_time = 0
-ALERT_COOLDOWN = 120
+ALERT_COOLDOWN = 30
 
 
 def send_wechat(title, content):
